@@ -1,15 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuthWithBackend } from '@/hooks/useAuthWithBackend';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks';
-import { Card, CardBody, Input, Button, PinInput, Alert } from '@/components';
+import { useAuthStore } from '@/store/authStore';
+import { Card, CardBody, Input, Button, Alert } from '@/components';
 import { PIN_LENGTH } from '@/lib/constants';
+import { PinInput } from '@/components';
 import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register, isLoading, error, clearError } = useAuth();
+  const { isAuthenticated } = useAuthStore();
+  const { register } = useAuthWithBackend();
   const [formData, setFormData] = useState({
     email: '',
     name: '',
@@ -17,7 +20,13 @@ export default function RegisterPage() {
     confirmPin: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showPins, setShowPins] = useState({ pin: false, confirmPin: false });
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -32,7 +41,6 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    clearError();
 
     const newErrors: Record<string, string> = {};
 
@@ -65,11 +73,10 @@ export default function RegisterPage() {
       return;
     }
 
-    try {
-      await register(formData.email, formData.name, formData.pin);
-      router.push('/dashboard');
-    } catch (err) {
-      console.error('Register error:', err);
+    setIsLoading(true);
+    const success = await register(formData.email, formData.name, formData.pin);
+    if (!success) {
+      setIsLoading(false);
     }
   };
 
@@ -80,12 +87,6 @@ export default function RegisterPage() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Crear Cuenta</h3>
           <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">Ingresa tus datos para comenzar</p>
         </div>
-
-        {error && (
-          <Alert type="error" title="Error al registrarse">
-            {error}
-          </Alert>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input

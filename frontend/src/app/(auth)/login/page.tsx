@@ -1,19 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuthWithBackend } from '@/hooks/useAuthWithBackend';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks';
-import { Card, CardBody, Input, Button, PinInput, Alert } from '@/components';
+import { Card, CardBody, Input, Button, Alert } from '@/components';
 import { PIN_LENGTH } from '@/lib/constants';
 import Link from 'next/link';
+import { useAuthStore } from '@/store/authStore';
+import { PinInput } from '@/components';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading, error, clearError } = useAuth();
+  const { isAuthenticated } = useAuthStore();
+  const { login } = useAuthWithBackend();
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [emailError, setEmailError] = useState('');
   const [pinError, setPinError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/dashboard');
+    }
+  }, [isAuthenticated, router]);
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,7 +40,7 @@ export default function LoginPage() {
     e.preventDefault();
     setEmailError('');
     setPinError('');
-    clearError();
+    setError('');
 
     let isValid = true;
 
@@ -51,11 +62,10 @@ export default function LoginPage() {
 
     if (!isValid) return;
 
-    try {
-      await login(email, pin);
-      router.push('/dashboard');
-    } catch (err) {
-      console.error('Login error:', err);
+    setIsLoading(true);
+    const success = await login(email, pin);
+    if (!success) {
+      setIsLoading(false);
     }
   };
 
